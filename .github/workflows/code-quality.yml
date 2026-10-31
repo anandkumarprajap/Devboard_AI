@@ -1,4 +1,4 @@
-# Goal - I have to do SAST for my Code
+# Goal - I have to do SAST for my Code --
 
 name: Code Quality
 
@@ -40,4 +40,4 @@ jobs:
 
             - name: Run Go Vet
               run: go vet ./...
-              working-directory: backend
+              working-directory: backend
