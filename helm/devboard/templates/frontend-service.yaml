@@ -1,0 +1,16 @@
+# ClusterIP — the Gateway (HTTPRoute) is what exposes the frontend to the
+# internet, so we do not need NodePort/LoadBalancer here.
+apiVersion: v1
+kind: Service
+metadata:
+  name: devboard-frontend-service
+  labels:
+    {{- include "devboard.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: devboard-frontend
+  ports:
+    - protocol: TCP
+      port: {{ .Values.frontend.servicePort }}
+      targetPort: {{ .Values.frontend.containerPort }}

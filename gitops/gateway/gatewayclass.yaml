@@ -1,0 +1,9 @@
+# The GatewayClass ties the name "envoy" (used by every Gateway in this repo)
+# to the Envoy Gateway controller. It is cluster-scoped — you create it once,
+# after installing Envoy Gateway.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: envoy
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller

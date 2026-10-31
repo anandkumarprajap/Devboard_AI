@@ -98,7 +98,7 @@ export function ProfileMenu() {
             <MenuItem
               icon={IconExternalLink}
               label="GitHub repo"
-              onClick={() => { setOpen(false); window.open('https://github.com/LondheShubham153/devboard', '_blank'); }}
+              onClick={() => { setOpen(false); window.open('https://github.com/anandkumarprajap/Devboard_AI', '_blank'); }}
             />
             <div className="my-1 h-px bg-ink-100 dark:bg-white/10" />
             <MenuItem

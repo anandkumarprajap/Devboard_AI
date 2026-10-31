@@ -1,0 +1,49 @@
+{{- if .Values.ai.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "devboard.fullname" . }}-ai-service
+  labels:
+    {{- include "devboard.labels" . | nindent 4 }}
+    app: devboard-ai-service
+spec:
+  replicas: {{ .Values.ai.replicas }}
+  selector:
+    matchLabels:
+      app: devboard-ai-service
+  template:
+    metadata:
+      labels:
+        {{- include "devboard.labels" . | nindent 8 }}
+        app: devboard-ai-service
+    spec:
+      containers:
+        - name: devboard-ai-service
+          image: "{{ .Values.ai.image.repository }}:{{ .Values.ai.image.tag }}"
+          imagePullPolicy: {{ .Values.ai.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.ai.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.ai.port | quote }}
+            - name: TASK_SERVICE_URL
+              value: {{ .Values.ai.taskServiceUrl | quote }}
+            - name: MODEL_API_BASE
+              value: {{ .Values.ai.ollamaUrl | quote }}
+            - name: MODEL_NAME
+              value: {{ .Values.ai.modelName | quote }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.ai.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.ai.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.ai.resources | nindent 12 }}
+{{- end }}

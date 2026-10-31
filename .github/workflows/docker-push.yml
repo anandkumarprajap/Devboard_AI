@@ -1,31 +1,36 @@
-# Goal Push the images to DockerHub 
+# Build and push the three service images, tagged with the commit SHA.
 name: Docker Push
 
-on: 
-    workflow_call:
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        description: Immutable tag to push (e.g. sha-abc1234)
+        required: true
+        type: string
 
 jobs:
-    frontend:
-        # Github runner
-        runs-on: ubuntu-latest
-        strategy:
-            fail-fast: false
-            matrix: 
-                folders: ['backend','frontend']
-        steps:
-            - name: Checkout Code
-              uses: actions/checkout@v4
+  build-push:
+    runs-on: ubuntu-latest        # amd64 — matches the EKS nodes
+    strategy:
+      fail-fast: false
+      matrix:
+        folders: ['backend', 'frontend', 'ai-service']
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
 
-            - name: Docker Setup [Login]
-              uses: docker/login-action@v4
-              with:
-                username: ${{ vars.DOCKERHUB_USERNAME }}
-                password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Docker Setup [Login]
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-            - name: Docker Build and Push
-              uses: docker/build-push-action@v7
-              with:
-                context: ./${{ matrix.folders}}
-                push: true
-                tags: ${{ vars.DOCKERHUB_USERNAME }}/github-actions-revision-${{ matrix.folders}}:latest
-                
+      - name: Docker Build and Push
+        uses: docker/build-push-action@v7
+        with:
+          context: ./${{ matrix.folders }}
+          push: true
+          tags: |
+            ${{ vars.DOCKERHUB_USERNAME }}/devboard-${{ matrix.folders }}:${{ inputs.image_tag }}
+            ${{ vars.DOCKERHUB_USERNAME }}/devboard-${{ matrix.folders }}:latest

@@ -1,0 +1,13 @@
+# The frontend proxy and the Gateway route both target this at ai-service:3005.
+kind: Service
+apiVersion: v1
+metadata:
+  name: ai-service
+  namespace: devboard
+spec:
+  selector:
+    app: devboard-ai-service
+  ports:
+    - protocol: TCP
+      port: 3005
+      targetPort: 3005

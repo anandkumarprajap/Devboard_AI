@@ -1,0 +1,45 @@
+# eksctl cluster definition for DevBoard.
+# Create it with:   eksctl create cluster -f gitops/eksctl/cluster.yaml
+# Delete it with:   eksctl delete cluster -f gitops/eksctl/cluster.yaml
+#
+# This is the ONLY infrastructure file you need — no Terraform. eksctl builds the
+# VPC, control plane, node group, IAM/OIDC, and add-ons from this one manifest.
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: devboard
+  region: us-west-2
+  # Version omitted on purpose: eksctl picks a currently-supported default.
+  # Pin one if you need to, e.g.  version: "1.31"
+
+# OIDC lets add-ons and workloads assume IAM roles (IRSA). The EBS CSI driver
+# below needs this to be true.
+iam:
+  withOIDC: true
+
+managedNodeGroups:
+  - name: ng-default
+    instanceType: t3.medium
+    # 3 nodes: the extra headroom is for the in-cluster Ollama model server
+    # (see gitops/09-ai-feature.md). Drop to 2 if you skip the AI feature.
+    desiredCapacity: 3
+    minSize: 2
+    maxSize: 3
+    volumeSize: 20   # GiB, root disk per node
+    # Gives nodes SSM access; handy for debugging, no SSH key needed.
+    ssh:
+      enableSsm: true
+
+# Managed add-ons. aws-ebs-csi-driver is what lets the Postgres StatefulSet's
+# PersistentVolumeClaim get a real EBS disk dynamically (via the default "gp2"
+# StorageClass). wellKnownPolicies wires the IAM permissions for us.
+addons:
+  - name: vpc-cni
+  - name: coredns
+  - name: kube-proxy
+  - name: aws-ebs-csi-driver
+    wellKnownPolicies:
+      ebsCSIController: true
+  # Powers the frontend HorizontalPodAutoscaler (provides CPU metrics).
+  - name: metrics-server

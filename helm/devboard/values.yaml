@@ -1,0 +1,123 @@
+# =============================================================================
+# DevBoard Helm values
+# -----------------------------------------------------------------------------
+# Every knob you can turn lives here. The templates in templates/ read these
+# values. Override any of them with `--set key=value` or a custom `-f my.yaml`.
+# =============================================================================
+
+# Optional name overrides. Leave blank to use the chart name ("devboard").
+nameOverride: ""
+fullnameOverride: ""
+# -----------------------------------------------------------------------------
+# Postgres (in-cluster database, runs as a StatefulSet with a persistent disk)
+# -----------------------------------------------------------------------------
+postgres:
+  image: postgres:16-alpine
+  # These three values are the single source of truth for the DB credentials.
+  # The backend's POSTGRES_URL is assembled from them (see templates/secret.yaml).
+  # NOTE: demo credentials only — never put real secrets in a values file in Git.
+  user: devboard
+  password: devboard
+  db: devboard
+  # The headless Service name Postgres is reachable at, in-cluster.
+  # Keep it "postgres" — the assembled POSTGRES_URL points here.
+  serviceName: postgres
+  storage:
+    size: 1Gi
+    # Empty string = use the cluster's default StorageClass.
+    # On EKS with the EBS CSI driver that default is "gp2".
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+# -----------------------------------------------------------------------------
+# Backend (Go + Gin API). Reachable in-cluster at the Service name "backend".
+# The frontend image proxies /api -> http://backend:8080, so the Service name
+# and port below MUST stay "backend" / 8080.
+# -----------------------------------------------------------------------------
+backend:
+  image:
+    repository: anandkumarprajap/devboard-backend
+    tag: sha-5c494bd
+    pullPolicy: IfNotPresent
+  replicas: 1
+  serviceName: backend
+  port: 8080
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+# -----------------------------------------------------------------------------
+# Frontend (React served by `vite preview` on 4173). This is the only tier the
+# Gateway exposes to the internet; it proxies /api to the backend internally.
+# -----------------------------------------------------------------------------
+frontend:
+  image:
+    repository: anandkumarprajap/devboard-frontend
+    # ":ai" is the rebuilt image that includes the AI Assistant page.
+    tag: sha-5c494bd
+    pullPolicy: IfNotPresent
+  replicas: 1
+  containerPort: 4173
+  # The Service port the Gateway's HTTPRoute targets.
+  servicePort: 8080
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+  # Horizontal Pod Autoscaler. Needs metrics-server in the cluster to actually
+  # scale (EKS does not ship it by default — see gitops docs).
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 60
+# -----------------------------------------------------------------------------
+# AI service (Flask, streaming SSE). Grounds answers in the project's tasks
+# (fetched from the backend) and streams from an OpenAI-compatible model server.
+# Reached from the browser under /api/ai/* (Gateway route + frontend proxy).
+# -----------------------------------------------------------------------------
+ai:
+  enabled: true
+  image:
+    repository: anandkumarprajap/devboard-ai-service
+    tag: sha-5c494bd
+    pullPolicy: IfNotPresent
+  replicas: 1
+  serviceName: ai-service
+  port: 3005
+  # Where to fetch task context (the Go backend in this release's namespace).
+  taskServiceUrl: http://backend:8080
+  # Shared, cluster-wide Ollama model server (OpenAI-compatible). No API key.
+  ollamaUrl: http://ollama.ollama.svc.cluster.local:11434/v1
+  modelName: llama3.2:1b
+  resources:
+    requests:
+      cpu: 25m
+      memory: 96Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+# -----------------------------------------------------------------------------
+# Gateway API (Envoy Gateway). Creates a Gateway + HTTPRoute so the app gets a
+# public URL via an AWS NLB. Set enabled=false to skip (e.g. on a local cluster
+# with no Gateway controller).
+# -----------------------------------------------------------------------------
+gateway:
+  enabled: true
+  # Must match the GatewayClass you created (see gitops/gateway/gatewayclass.yaml).
+  className: envoy
+  # HTTP listener port on the Gateway.
+  listenerPort: 80
+  # Leave empty to accept any hostname (correct for the raw LB DNS setup).
+  hostname: ""

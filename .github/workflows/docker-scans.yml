@@ -10,11 +10,11 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
-            matrix: 
-                folders: ['backend','frontend']
+            matrix:
+                folders: ['backend','frontend','ai-service']
         steps:
             - name: Code Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
             - name: ${{ matrix.folders}} Dockerfile Lint
               uses: hadolint/hadolint-action@v3.1.0
@@ -28,14 +28,14 @@ jobs:
                 password: ${{ secrets.DOCKERHUB_TOKEN }}
 
             - name: Docker Build ${{ matrix.folders}}
-              run: docker build -t ${{ vars.DOCKERHUB_USERNAME }}/github-actions-revision-${{ matrix.folders }}:latest .
+              run: docker build -t ${{ vars.DOCKERHUB_USERNAME }}/devboard-${{ matrix.folders }}:latest .
               working-directory: ${{ matrix.folders}}
 
             - name: Run Trivy vulnerability scanner
               uses: aquasecurity/trivy-action@v0.36.0
               continue-on-error: true
               with:
-                image-ref: ${{ vars.DOCKERHUB_USERNAME }}/github-actions-revision-${{ matrix.folders }}:latest
+                image-ref: ${{ vars.DOCKERHUB_USERNAME }}/devboard-${{ matrix.folders }}:latest
                 format: 'table'
                 exit-code: '1'
                 ignore-unfixed: true

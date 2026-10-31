@@ -1,0 +1,35 @@
+# ArgoCD Application — deploys DevBoard WITHOUT Helm, straight from the raw
+# manifests in k8s/. ArgoCD watches the gitops branch and keeps the cluster in
+# sync with Git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: devboard-raw
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/anandkumarprajap/Devboard_AI.git
+    targetRevision: gitops
+    path: k8s
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: devboard
+
+  # The frontend Deployment's replica count is owned by the HPA, not Git.
+  # Without this, selfHeal and the HPA fight over /spec/replicas forever
+  # (the app never settles on Synced).
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+  syncPolicy:
+    automated:
+      prune: true      # delete resources removed from Git
+      selfHeal: true   # revert manual drift back to Git
+    syncOptions:
+      - CreateNamespace=true

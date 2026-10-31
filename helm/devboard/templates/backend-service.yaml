@@ -1,0 +1,16 @@
+# Fixed name "backend" on port 8080 — this is exactly what the frontend image's
+# vite proxy targets (http://backend:8080). Do not rename without rebuilding the
+# frontend image.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.backend.serviceName }}
+  labels:
+    {{- include "devboard.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: devboard-backend
+  ports:
+    - protocol: TCP
+      port: {{ .Values.backend.port }}
+      targetPort: {{ .Values.backend.port }}

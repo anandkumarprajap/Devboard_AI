@@ -1,0 +1,22 @@
+# Gateway API — the internet entrypoint for the raw (non-Helm) deployment.
+#
+# A Gateway tells the controller (Envoy Gateway) to spin up a load balancer
+# (an AWS NLB on EKS) and listen on the port below. HTTPRoutes (httproute.yml)
+# attach to it and decide where traffic goes.
+#
+# Prereq: the "envoy" GatewayClass must already exist in the cluster
+# (see gitops/gateway/gatewayclass.yml) and Envoy Gateway must be installed.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: devboard-gateway
+  namespace: devboard
+spec:
+  gatewayClassName: envoy
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same

@@ -1,0 +1,19 @@
+apiVersion: v2
+name: devboard
+description: DevBoard — a 3-tier task tracker (React + Go + Postgres) packaged for GitOps on Kubernetes
+type: application
+
+# 'version' is the chart version — bump it whenever you change the chart.
+version: 0.1.0
+
+# 'appVersion' tracks the application these templates deploy. We use image tag
+# ':latest', so this is informational only.
+appVersion: "1.0.0"
+
+keywords:
+  - devboard
+  - gitops
+  - argocd
+  - gateway-api
+maintainers:
+  - name: Anand Kumar Prajapati

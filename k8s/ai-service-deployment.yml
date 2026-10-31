@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devboard-ai-service-deployment
+  namespace: devboard
+  labels:
+    app: devboard-ai-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devboard-ai-service
+  template:
+    metadata:
+      labels:
+        app: devboard-ai-service
+    spec:
+      containers:
+        - name: devboard-ai-service
+          image: anandkumarprajap/devboard-ai-service:sha-5c494bd
+          ports:
+            - containerPort: 3005
+          env:
+            - name: PORT
+              value: "3005"
+            # Task context comes from the Go backend in this same namespace.
+            - name: TASK_SERVICE_URL
+              value: http://backend:8080
+            # Shared, cluster-wide Ollama model server (OpenAI-compatible).
+            - name: MODEL_API_BASE
+              value: http://ollama.ollama.svc.cluster.local:11434/v1
+            - name: MODEL_NAME
+              value: llama3.2:1b
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3005
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3005
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 25m
+              memory: 96Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

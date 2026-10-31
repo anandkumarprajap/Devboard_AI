@@ -1,0 +1,16 @@
+# Headless Service — gives the StatefulSet a stable in-cluster DNS name.
+# Kept as a fixed name ("postgres") because the backend's POSTGRES_URL points here.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.postgres.serviceName }}
+  labels:
+    {{- include "devboard.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    app: devboard-postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432

@@ -1,0 +1,7 @@
+# Minimal Helm values for the argo-cd chart.
+# server.insecure=true serves the API/UI over plain HTTP, which keeps
+# `kubectl port-forward` simple (no self-signed-cert redirect loops).
+# Fine for a learning cluster; put TLS in front of it for anything real.
+configs:
+  params:
+    server.insecure: true

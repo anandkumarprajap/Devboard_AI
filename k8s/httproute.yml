@@ -1,0 +1,52 @@
+# Sends all traffic ("/") to the frontend Service. The frontend proxies /api/*
+# to the backend inside the cluster, so a single rule is enough.
+#
+# ADVANCED (optional): to route /api straight to the backend at the edge, add a
+# second rule with a URLRewrite filter that strips the /api prefix:
+#
+#   - matches:
+#       - path: { type: PathPrefix, value: /api }
+#     filters:
+#       - type: URLRewrite
+#         urlRewrite:
+#           path: { type: ReplacePrefixMatch, replacePrefixMatch: / }
+#     backendRefs:
+#       - name: backend
+#         port: 8080
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: devboard-route
+  namespace: devboard
+spec:
+  parentRefs:
+    - name: devboard-gateway
+  rules:
+    # /api/ai/* → ai-service. A longer prefix than "/", so it wins for AI calls.
+    # URLRewrite strips "/api/ai" so the service sees /summarise, /ask, etc.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/ai
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      # CPU inference streams slowly — raise the default (~15s) route timeout so
+      # Envoy doesn't cut off the SSE response.
+      timeouts:
+        request: "300s"
+        backendRequest: "300s"
+      backendRefs:
+        - name: ai-service
+          port: 3005
+    # everything else → frontend (which proxies /api → backend internally)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: devboard-frontend-service
+          port: 8080

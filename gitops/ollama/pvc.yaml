@@ -1,0 +1,12 @@
+# Persists the downloaded model so a pod restart doesn't re-pull ~1.3 GB.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models
+  namespace: ollama
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

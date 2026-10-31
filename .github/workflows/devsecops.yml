@@ -1,53 +1,68 @@
-# Goal - To Run End to End DevSecOps CI Pipeline
-
+# End-to-end DevSecOps + GitOps pipeline.
+#
+# Push code to `gitops` -> run gates -> build & push SHA-tagged images ->
+# commit the new image tag into the manifests -> ArgoCD syncs the change.
+# CI never touches the cluster; ArgoCD is the only deployer.
 name: DevSecOps
 
 on:
-    push:
-        branches: [master]
+  push:
+    branches: [gitops]
+    # Only code changes rebuild. Manifest-only changes (k8s/, helm/, gitops/)
+    # are handled by ArgoCD directly — and the bump commit below touches only
+    # those paths, so it can't retrigger this pipeline.
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'ai-service/**'
+      - '.github/workflows/**'
+      - 'sonar-project.properties'
+  pull_request:
+    branches: [gitops]
+  workflow_dispatch:
 
 jobs:
+  # Single source of the image tag, shared by build and bump.
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.t.outputs.tag }}
+    steps:
+      - id: t
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-    ## ---- CI ----
-    # Code Stage 
-    code-quality:
-        uses: ./.github/workflows/code-quality.yml
+  # ---- CI gates (run on push and PR) ----
+  code-quality:
+    uses: ./.github/workflows/code-quality.yml
+  secret-scanning:
+    uses: ./.github/workflows/secret-scanning.yml
+  dependency-checks:
+    uses: ./.github/workflows/dependency-scan.yml
+  docker-checks:
+    uses: ./.github/workflows/docker-scans.yml
+    secrets: inherit
+  sonar-qube:
+    uses: ./.github/workflows/sonar-scan.yml
+    secrets: inherit
+  code-tests:
+    uses: ./.github/workflows/code-tests.yml
 
-    # Secret Scanning
-    secret-scanning:
-        uses: ./.github/workflows/secret-scanning.yml
+  # ---- Build & push images (push events only, after every gate passes) ----
+  docker-push:
+    if: github.event_name != 'pull_request'
+    needs: [prep, code-quality, code-tests, sonar-qube, docker-checks, dependency-checks, secret-scanning]
+    uses: ./.github/workflows/docker-push.yml
+    with:
+      image_tag: ${{ needs.prep.outputs.tag }}
+    secrets: inherit
 
-    # Dependency Checks
-    dependency-checks:
-        uses: ./.github/workflows/dependency-scan.yml
-
-    # Docker Checks
-    docker-checks:
-        uses: ./.github/workflows/docker-scans.yml
-        secrets: inherit 
-
-    # SonarQube
-    sonar-qube:
-        uses: ./.github/workflows/sonar-scan.yml
-        secrets: inherit
-
-    # Code Tests
-    code-tests:
-        uses: ./.github/workflows/code-tests.yml
-
-    # push-to-docker-hub:
-    docker-push:
-        uses: ./.github/workflows/docker-push.yml
-        needs: [code-quality,code-tests,sonar-qube,docker-checks,dependency-checks,secret-scanning]
-        secrets: inherit
-
-    ## ---- CD -----
-    deploy:
-        needs: [docker-push]
-        uses: ./.github/workflows/deploy.yml
-        secrets: inherit
-
-    dast-scan:
-        needs: [deploy]
-        uses: ./.github/workflows/dast.yml
-        secrets: inherit
+  # ---- GitOps: write the new tag into the manifests and commit back ----
+  # ArgoCD (watching gitops) picks up the commit and deploys.
+  gitops-bump:
+    if: github.event_name != 'pull_request'
+    needs: [prep, docker-push]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/gitops-bump.yml
+    with:
+      image_tag: ${{ needs.prep.outputs.tag }}

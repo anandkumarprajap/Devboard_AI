@@ -1,0 +1,66 @@
+# Ollama — a shared, in-cluster model server (like Envoy Gateway, it's platform
+# infra used by all app stacks, not part of any one app). It exposes an
+# OpenAI-compatible API on :11434, so the ai-service talks to it with plain
+# OpenAI-style requests.
+#
+# CPU-only, small model (llama3.2:1b, ~1.3 GB). Free and self-contained — no GPU,
+# no API key. Trade-off: modest quality and slower than a hosted API.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: ollama
+  labels:
+    app: ollama
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate           # single RWO volume — don't run two pods at once
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          ports:
+            - containerPort: 11434
+          env:
+            - name: OLLAMA_MODEL
+              value: llama3.2:1b
+          # Start the server, wait for it, then pull the model. `wait` keeps the
+          # server as the foreground process. Readiness (below) only passes once
+          # the model is present, so the Service won't send traffic too early.
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              /bin/ollama serve &
+              pid=$!
+              until ollama list >/dev/null 2>&1; do sleep 1; done
+              ollama pull "$OLLAMA_MODEL"
+              wait $pid
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "ollama list | grep -q llama3.2"]
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 40   # allow several minutes for the first pull
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1536Mi
+            limits:
+              cpu: "2"
+              memory: 3Gi
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: ollama-models

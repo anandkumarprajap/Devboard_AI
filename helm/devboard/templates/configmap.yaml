@@ -1,0 +1,24 @@
+# Non-secret config + the Postgres init SQL.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devboard-configmap
+  labels:
+    {{- include "devboard.labels" . | nindent 4 }}
+data:
+  POSTGRES_USER: {{ .Values.postgres.user | quote }}
+---
+# Init scripts, mounted into Postgres at /docker-entrypoint-initdb.d and run once
+# on first boot (empty data volume). Loaded from the chart's files/ directory so
+# the SQL stays readable and un-templated ($$ in plpgsql is left untouched).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  labels:
+    {{- include "devboard.labels" . | nindent 4 }}
+data:
+  01_schema.sql: |-
+{{ .Files.Get "files/01_schema.sql" | indent 4 }}
+  02_seed.sql: |-
+{{ .Files.Get "files/02_seed.sql" | indent 4 }}
