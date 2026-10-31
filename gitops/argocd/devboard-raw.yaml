@@ -33,4 +33,3 @@ spec:
       selfHeal: true   # revert manual drift back to Git
     syncOptions:
       - CreateNamespace=true
-      - Replace=true
