@@ -1,0 +1,5 @@
+[allowlist]
+description = "Allow demo Kubernetes secret manifests"
+paths = [
+  '''k8s/secrets\.yml''',
+]

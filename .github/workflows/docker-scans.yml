@@ -23,6 +23,7 @@ jobs:
               
             - name: Docker Setup [Login]
               uses: docker/login-action@v4
+              continue-on-error: true
               with:
                 username: ${{ vars.DOCKERHUB_USERNAME }}
                 password: ${{ secrets.DOCKERHUB_TOKEN }}
