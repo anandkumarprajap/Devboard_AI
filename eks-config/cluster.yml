@@ -1,0 +1,28 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: devboard
+  region: us-west-2
+
+iam:
+  withOIDC: true
+
+managedNodeGroups:
+  - name: ng-default
+    instanceType: t3.medium
+    desiredCapacity: 3
+    minSize: 2
+    maxSize: 3
+    volumeSize: 20
+    ssh:
+      enableSsm: true
+
+addons:
+  - name: vpc-cni
+  - name: coredns
+  - name: kube-proxy
+  - name: aws-ebs-csi-driver
+    wellKnownPolicies:
+      ebsCSIController: true
+  - name: metrics-server

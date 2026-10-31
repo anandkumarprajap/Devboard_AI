@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: devboard
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/anandkumarprajap/Devboard_AI.git
+    targetRevision: gitops
+    path: k8s
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: devboard
+
+  # Prevent ArgoCD selfHeal from fighting HPA over frontend replicas
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
