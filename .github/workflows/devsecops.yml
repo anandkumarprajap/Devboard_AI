@@ -66,3 +66,4 @@ jobs:
     uses: ./.github/workflows/gitops-bump.yml
     with:
       image_tag: ${{ needs.prep.outputs.tag }}
+    secrets: inherit

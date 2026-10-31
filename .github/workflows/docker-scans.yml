@@ -25,18 +25,18 @@ jobs:
               uses: docker/login-action@v4
               continue-on-error: true
               with:
-                username: ${{ vars.DOCKERHUB_USERNAME }}
+                username: ${{ vars.DOCKERHUB_USERNAME || secrets.DOCKERHUB_USERNAME || 'anandkumarprajap' }}
                 password: ${{ secrets.DOCKERHUB_TOKEN }}
 
             - name: Docker Build ${{ matrix.folders}}
-              run: docker build -t ${{ vars.DOCKERHUB_USERNAME }}/devboard-${{ matrix.folders }}:latest .
+              run: docker build -t ${{ vars.DOCKERHUB_USERNAME || secrets.DOCKERHUB_USERNAME || 'anandkumarprajap' }}/devboard-${{ matrix.folders }}:latest .
               working-directory: ${{ matrix.folders}}
 
             - name: Run Trivy vulnerability scanner
               uses: aquasecurity/trivy-action@v0.36.0
               continue-on-error: true
               with:
-                image-ref: ${{ vars.DOCKERHUB_USERNAME }}/devboard-${{ matrix.folders }}:latest
+                image-ref: ${{ vars.DOCKERHUB_USERNAME || secrets.DOCKERHUB_USERNAME || 'anandkumarprajap' }}/devboard-${{ matrix.folders }}:latest
                 format: 'table'
                 exit-code: '1'
                 ignore-unfixed: true

@@ -21,6 +21,9 @@ jobs:
     steps:
       - name: Checkout gitops
         uses: actions/checkout@v7
+        with:
+          ref: gitops
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install yq
         run: |
@@ -30,7 +33,7 @@ jobs:
 
       - name: Write image refs into manifests
         env:
-          OWNER: ${{ vars.DOCKERHUB_USERNAME }}
+          OWNER: ${{ vars.DOCKERHUB_USERNAME || secrets.DOCKERHUB_USERNAME || 'anandkumarprajap' }}
           TAG: ${{ inputs.image_tag }}
         run: |
           set -eu
@@ -62,4 +65,5 @@ jobs:
           fi
           git add -A
           git commit -m "ci: deploy ${TAG} [skip ci]"
+          git pull origin gitops --rebase || true
           git push origin HEAD:gitops
