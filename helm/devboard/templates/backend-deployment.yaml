@@ -31,17 +31,24 @@ spec:
                   key: POSTGRES_URL
             - name: PORT
               value: {{ .Values.backend.port | quote }}
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: {{ .Values.backend.port }}
-            initialDelaySeconds: 15
-            periodSeconds: 10
-          readinessProbe:
+          startupProbe:
             httpGet:
               path: /health
               port: {{ .Values.backend.port }}
             initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.backend.port }}
+            initialDelaySeconds: 10
             periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: {{ .Values.backend.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}

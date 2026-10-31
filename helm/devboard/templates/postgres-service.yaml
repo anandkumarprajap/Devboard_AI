@@ -8,6 +8,7 @@ metadata:
     {{- include "devboard.labels" . | nindent 4 }}
 spec:
   clusterIP: None
+  publishNotReadyAddresses: true
   selector:
     app: devboard-postgres
   ports:

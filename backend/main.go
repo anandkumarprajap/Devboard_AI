@@ -13,13 +13,30 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 )
 
-var db *sql.DB
+var (
+	db      *sql.DB
+	dbMu    sync.RWMutex
+	dbReady bool
+)
+
+func isDBReady() bool {
+	dbMu.RLock()
+	defer dbMu.RUnlock()
+	return dbReady
+}
+
+func setDBReady(ready bool) {
+	dbMu.Lock()
+	dbReady = ready
+	dbMu.Unlock()
+}
 
 // Task mirrors the JSON shape the React UI expects.
 type Task struct {
@@ -49,27 +66,47 @@ func main() {
 	var err error
 	db, err = sql.Open("postgres", dsn)
 	if err != nil {
-		log.Fatalf("[backend] FATAL open db: %v", err)
+		log.Printf("[backend] WARN opening db handle: %v", err)
+	} else {
+		db.SetMaxOpenConns(10)
 	}
-	db.SetMaxOpenConns(10)
 
-	// Wait for Postgres to accept connections (compose start ordering).
-	for i := 0; i < 30; i++ {
-		if err = db.Ping(); err == nil {
-			break
+	// Connect to Postgres in the background so the HTTP server can start
+	// immediately and satisfy Kubernetes liveness / startup probes.
+	go func() {
+		for i := 0; ; i++ {
+			if db != nil {
+				if err := db.Ping(); err == nil {
+					setDBReady(true)
+					log.Println("[backend] connected to postgres")
+					return
+				}
+			}
+			if i%5 == 0 {
+				log.Printf("[backend] waiting for postgres (%d)…", i+1)
+			}
+			time.Sleep(2 * time.Second)
 		}
-		log.Printf("[backend] waiting for postgres (%d)…", i+1)
-		time.Sleep(2 * time.Second)
-	}
-	if err != nil {
-		log.Fatalf("[backend] FATAL ping db: %v", err)
-	}
-	log.Println("[backend] connected to postgres")
+	}()
 
 	r := gin.Default()
 
+	// Liveness probe endpoint: returns 200 as soon as the HTTP server is alive
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "backend"})
+		if !isDBReady() {
+			c.JSON(http.StatusOK, gin.H{"status": "starting", "service": "backend", "db": "connecting"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "backend", "db": "connected"})
+	})
+
+	// Readiness probe endpoint: returns 200 only when DB ping succeeds
+	r.GET("/ready", func(c *gin.Context) {
+		if !isDBReady() {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "waiting_for_postgres"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ready"})
 	})
 
 	r.GET("/projects", listProjects)
@@ -87,6 +124,10 @@ func main() {
 }
 
 func listProjects(c *gin.Context) {
+	if !isDBReady() || db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database is still connecting, please retry"})
+		return
+	}
 	rows, err := db.Query(
 		`SELECT id, name, COALESCE(description,''), owner_id, created_at
 		   FROM projects ORDER BY id`)
@@ -111,6 +152,10 @@ func listProjects(c *gin.Context) {
 }
 
 func createProject(c *gin.Context) {
+	if !isDBReady() || db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database is still connecting, please retry"})
+		return
+	}
 	var body struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
@@ -137,6 +182,10 @@ func createProject(c *gin.Context) {
 }
 
 func listTasks(c *gin.Context) {
+	if !isDBReady() || db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database is still connecting, please retry"})
+		return
+	}
 	projectID, err := strconv.Atoi(c.Query("project_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "project_id is required"})
@@ -160,6 +209,10 @@ func listTasks(c *gin.Context) {
 }
 
 func createTask(c *gin.Context) {
+	if !isDBReady() || db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database is still connecting, please retry"})
+		return
+	}
 	var body struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
@@ -191,6 +244,10 @@ func createTask(c *gin.Context) {
 }
 
 func updateTask(c *gin.Context) {
+	if !isDBReady() || db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database is still connecting, please retry"})
+		return
+	}
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -239,6 +296,10 @@ func updateTask(c *gin.Context) {
 }
 
 func searchTasks(c *gin.Context) {
+	if !isDBReady() || db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database is still connecting, please retry"})
+		return
+	}
 	q := c.Query("q")
 	projectID, err := strconv.Atoi(c.Query("project_id"))
 	if err != nil {

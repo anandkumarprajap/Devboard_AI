@@ -6,6 +6,7 @@ metadata:
   namespace: devboard
 spec:
   clusterIP: None
+  publishNotReadyAddresses: true
   selector:
     app: devboard-postgres
   ports:
