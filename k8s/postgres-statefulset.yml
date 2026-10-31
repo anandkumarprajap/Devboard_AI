@@ -3,6 +3,8 @@ kind: StatefulSet
 metadata:
   name: postgres-statefulset
   namespace: devboard
+  annotations:
+    argocd.argoproj.io/sync-options: Replace=true
   labels:
     app: devboard-postgres
 spec:

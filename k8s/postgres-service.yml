@@ -1,16 +1,15 @@
-# headless service
 kind: Service
 apiVersion: v1
 metadata:
   name: postgres
   namespace: devboard
+  annotations:
+    argocd.argoproj.io/sync-options: Replace=true
 spec:
-  clusterIP: None
-  publishNotReadyAddresses: true
   selector:
     app: devboard-postgres
   ports:
   - protocol: TCP
-    port: 5432 # service 
-    targetPort: 5432  # Pod port
+    port: 5432
+    targetPort: 5432
 
